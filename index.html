@@ -1,778 +1,1 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Banquete Na N1 - Guia Culinário</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
-    
-    <!-- Chosen Palette: Warm Neutrals & Subtle Accents -->
-    <!-- Application Structure Plan: A task-oriented, tabbed SPA structure was chosen to mirror a real-world cooking workflow. A 'Receitas' tab was added based on user feedback to house the detailed, step-by-step recipes, making the core information more accessible. The structure is now: 'Visão Geral' (context), 'Receitas' (core instructions), 'Planejamento' (shopping/budgeting), 'Execução' (interactive timeline), and 'Finalização' (plating/AI tips). This improves usability by separating the static recipe reference from the dynamic cooking timeline. The recipe tab now uses an accordion interface for better navigation. -->
-    <!-- Visualization & Content Choices: 
-        - Report Info: Detailed Recipes -> Goal: Provide clear, static cooking instructions -> Viz: Accordion Interface (HTML/CSS/JS) -> Interaction: Click to expand/collapse one recipe at a time -> Justification: An accordion is ideal for presenting large blocks of text content without overwhelming the user, improving scannability and focus.
-        - Report Info: Budget Table -> Goal: Inform cost breakdown -> Viz: Doughnut Chart (Chart.js/Canvas) -> Interaction: Hover to see details -> Justification: More intuitive for at-a-glance proportional understanding than a table.
-        - Report Info: Ingredient List -> Goal: Track purchases -> Viz: Interactive Checklist (HTML/CSS/JS) -> Interaction: Click to check off -> Justification: Standard, highly usable UI for task completion.
-        - Report Info: Cooking Steps -> Goal: Guide chronological process -> Viz: Vertical Timeline Diagram (HTML/Tailwind) -> Interaction: Filter by prep/final execution -> Justification: Consolidates all steps into one master view.
-        - Report Info: Drink Pairing -> Goal: Provide personalized suggestions -> Viz: Text input + Button + Dynamic Text Area (HTML/JS) -> Interaction: User types preference, clicks button to call Gemini API -> Justification: Transforms a static suggestion into a dynamic, user-centric feature.
-        - Library/Method: Chart.js for the chart, custom Vanilla JS for all other interactions. -->
-    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
-
-    <style>
-        body {
-            font-family: 'Roboto', sans-serif;
-            background-color: #FDFBF8; /* Warm off-white */
-            color: #4B423B; /* Dark brown-gray */
-        }
-        h1, h2, h3, h4, h5 {
-            font-family: 'Playfair Display', serif;
-        }
-        .tab-active {
-            border-bottom-color: #D97706; /* Amber-600 */
-            color: #B45309; /* Amber-700 */
-            font-weight: 700;
-        }
-        .tab-inactive {
-            border-bottom-color: transparent;
-            color: #78716C; /* Stone-500 */
-        }
-        .chart-container {
-            position: relative;
-            width: 100%;
-            max-width: 450px;
-            margin-left: auto;
-            margin-right: auto;
-            height: 300px;
-            max-height: 400px;
-        }
-        @media (min-width: 768px) {
-            .chart-container {
-                height: 400px;
-            }
-        }
-        .timeline-item::before {
-            content: '';
-            position: absolute;
-            top: 1rem;
-            left: -1.4rem;
-            width: 1.25rem;
-            height: 1.25rem;
-            border-radius: 50%;
-            background-color: #F5F5F4; /* Stone-200 */
-            border: 3px solid #D97706; /* Amber-600 */
-        }
-        .timeline-line {
-            position: absolute;
-            top: 1rem;
-            left: -0.875rem; /* Centered on the dot */
-            width: 2px;
-            height: 100%;
-            background-color: #E7E5E4; /* Stone-200 */
-        }
-        input[type="checkbox"]:checked + label {
-            text-decoration: line-through;
-            color: #A8A29E; /* Stone-400 */
-        }
-        .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            border-left-color: #D97706;
-            animation: spin 1s ease infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .recipe-content ul {
-            list-style-type: disc;
-            list-style-position: inside;
-            padding-left: 1rem;
-        }
-        .recipe-content ol {
-            list-style-type: decimal;
-            list-style-position: inside;
-            padding-left: 1rem;
-        }
-        /* New contrast colors */
-        .section-bg-contrast {
-            background-color: #FAFAF9; /* Stone-50 */
-        }
-        .accordion-trigger-bg {
-             background-color: #F5F5F4; /* Stone-200 */
-        }
-        .accordion-trigger-bg:hover {
-             background-color: #E7E5E4; /* Stone-300 */
-        }
-    </style>
-</head>
-<body class="antialiased">
-
-    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
-
-        <!-- Header -->
-        <header class="text-center mb-8 md:mb-12">
-            <h1 class="text-4xl md:text-6xl font-bold text-amber-900">Banquete Na N1</h1>
-            <p class="text-lg md:text-xl text-stone-600 mt-2">Menu Interativo By: João Solagna</p>
-        </header>
-
-        <!-- Navigation Tabs -->
-        <nav class="flex flex-wrap justify-center border-b border-stone-300 mb-8 sticky top-0 bg-[#FDFBF8]/90 backdrop-blur-sm z-10">
-            <button data-tab="visao-geral" class="tab-btn tab-active text-sm md:text-base py-3 px-4 md:px-6 border-b-2 transition-colors duration-300">Visão Geral</button>
-            <button data-tab="receitas" class="tab-btn tab-inactive text-sm md:text-base py-3 px-4 md:px-6 border-b-2 transition-colors duration-300">Receitas</button>
-            <button data-tab="planejamento" class="tab-btn tab-inactive text-sm md:text-base py-3 px-4 md:px-6 border-b-2 transition-colors duration-300">Planejamento</button>
-            <button data-tab="execucao" class="tab-btn tab-inactive text-sm md:text-base py-3 px-4 md:px-6 border-b-2 transition-colors duration-300">Execução</button>
-            <button data-tab="finalizacao" class="tab-btn tab-inactive text-sm md:text-base py-3 px-4 md:px-6 border-b-2 transition-colors duration-300">Finalização</button>
-        </nav>
-
-        <!-- Content Sections -->
-        <main>
-            <!-- Visão Geral Section -->
-            <section id="visao-geral" class="tab-content p-4 md:p-6 rounded-lg">
-                <div class="bg-white p-6 md:p-8 rounded-lg shadow-sm border border-stone-200">
-                    <h2 class="text-3xl md:text-4xl font-bold mb-4 text-amber-900">A Filosofia do Prato</h2>
-                    <p class="text-base md:text-lg leading-relaxed text-stone-700">
-                        A concepção de um jantar memorável reside não apenas na excelência dos pratos individuais, mas na sinfonia que eles compõem em conjunto. O menu aqui proposto — um Lombo Suíno Assado, acompanhado por uma Farofa Crocante de Castanhas e um Risoto de Figo Fresco, Gorgonzola e Mel — é uma celebração de contrastes deliberados e harmonias complexas, desenhado para um paladar que aprecia a sofisticação nos detalhes. A dinâmica de sabores é o pilar desta experiência, onde o salgado encontra o doce, e o cremoso dança com o crocante, transformando a refeição em uma exploração sensorial.
-                    </p>
-                </div>
-
-                <div class="grid md:grid-cols-3 gap-6 mt-8">
-                    <div class="bg-white p-6 rounded-lg border border-stone-200 hover:shadow-md transition-shadow">
-                        <h3 class="text-2xl font-bold mb-2 text-stone-800">Lombo Suíno Assado</h3>
-                        <p class="text-stone-600">Suculento e com uma crosta perfeitamente dourada, serve como a base robusta do prato principal.</p>
-                    </div>
-                    <div class="bg-white p-6 rounded-lg border border-stone-200 hover:shadow-md transition-shadow">
-                        <h3 class="text-2xl font-bold mb-2 text-stone-800">Risoto de Figo & Gorgonzola</h3>
-                        <p class="text-stone-600">Um equilíbrio primoroso entre o doce do figo e do mel e o salgado intenso do queijo gorgonzola.</p>
-                    </div>
-                    <div class="bg-white p-6 rounded-lg border border-stone-200 hover:shadow-md transition-shadow">
-                        <h3 class="text-2xl font-bold mb-2 text-stone-800">Farofa & Tuile Crocantes</h3>
-                        <p class="text-stone-600">A textura que surpreende, com a crocância da farofa de castanhas e a elegância da tuile de parmesão.</p>
-                    </div>
-                </div>
-            </section>
-            
-            <!-- Receitas Section -->
-            <section id="receitas" class="tab-content hidden p-4 md:p-6 rounded-lg section-bg-contrast">
-                <h2 class="text-3xl md:text-4xl font-bold mb-6 text-amber-900 text-center">Receitas Detalhadas</h2>
-                <p class="text-center text-stone-600 mb-8 max-w-2xl mx-auto">Clique no título de uma receita para expandir seus detalhes. Abrir uma nova receita fechará a anterior.</p>
-                <div id="recipe-accordion-container" class="space-y-2 max-w-4xl mx-auto">
-                    <!-- Recipe accordion will be generated here -->
-                </div>
-            </section>
-
-            <!-- Planejamento Section -->
-            <section id="planejamento" class="tab-content hidden p-4 md:p-6 rounded-lg">
-                <div class="grid lg:grid-cols-2 gap-8">
-                    <div>
-                        <h2 class="text-3xl font-bold mb-4 text-amber-900">Lista de Compras</h2>
-                        <p class="text-stone-600 mb-6">Use esta lista interativa para organizar suas compras.</p>
-                        <div id="shopping-list" class="space-y-4 max-h-[600px] overflow-y-auto pr-2"></div>
-                    </div>
-                    <div>
-                        <h2 class="text-3xl font-bold mb-4 text-amber-900">Orçamento e Planejamento</h2>
-                         <p class="text-stone-600 mb-6">Visualize o custo estimado e use o assistente de IA para imprevistos.</p>
-                        <div class="bg-white p-4 md:p-6 rounded-lg border border-stone-200 mb-6">
-                            <div class="chart-container">
-                                <canvas id="budgetChart"></canvas>
-                            </div>
-                        </div>
-                        <div class="bg-white p-6 rounded-lg border border-stone-200">
-                            <h3 class="text-2xl font-bold mb-4 text-stone-800">Assistente de Substituições</h3>
-                            <p class="text-stone-600 mb-4">Faltou um ingrediente? Digite o nome abaixo e a IA encontrará a melhor alternativa para sua receita.</p>
-                            <div class="flex flex-col sm:flex-row gap-2">
-                                <input type="text" id="substitute-ingredient" placeholder="Ex: Queijo Gorgonzola" class="flex-grow p-2 border border-stone-300 rounded-md focus:ring-amber-500 focus:border-amber-500">
-                                <button id="get-substitute-btn" class="bg-amber-600 text-white px-4 py-2 rounded-md hover:bg-amber-700 transition-colors flex items-center justify-center gap-2">
-                                    <span class="btn-text">✨ Encontrar</span>
-                                    <div class="spinner hidden"></div>
-                                </button>
-                            </div>
-                            <div id="substitute-result" class="mt-4 text-stone-700 bg-stone-50 p-4 rounded-md border border-stone-200 min-h-[100px]">
-                                <p class="text-stone-500">As sugestões de substituição aparecerão aqui.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Execução Section -->
-            <section id="execucao" class="tab-content hidden p-4 md:p-6 rounded-lg section-bg-contrast">
-                <h2 class="text-3xl md:text-4xl font-bold mb-2 text-amber-900">Linha do Tempo da Execução</h2>
-                <p class="text-stone-600 mb-6">Siga a linha do tempo para uma execução perfeita. Filtre os passos para focar no preparo antecipado ou na execução final.</p>
-                <div class="flex justify-center space-x-2 mb-8">
-                    <button data-filter="all" class="timeline-filter-btn bg-amber-600 text-white px-4 py-2 rounded-full shadow">Tudo</button>
-                    <button data-filter="prep" class="timeline-filter-btn bg-stone-200 text-stone-700 px-4 py-2 rounded-full">Preparo Antecipado</button>
-                    <button data-filter="final" class="timeline-filter-btn bg-stone-200 text-stone-700 px-4 py-2 rounded-full">Execução Final</button>
-                </div>
-                
-                <div class="relative pl-8 max-w-3xl mx-auto">
-                    <div class="timeline-line"></div>
-                    <div id="timeline-container" class="space-y-8">
-                    </div>
-                </div>
-            </section>
-
-            <!-- Finalização e Dicas Section -->
-            <section id="finalizacao" class="tab-content hidden p-4 md:p-6 rounded-lg">
-                 <h2 class="text-3xl md:text-4xl font-bold mb-6 text-amber-900">Finalização e Dicas do Chef</h2>
-                 <div class="grid md:grid-cols-2 gap-8">
-                    <div class="bg-white p-6 rounded-lg border border-stone-200">
-                        <h3 class="text-2xl font-bold mb-4 text-stone-800">A Arte do Empratamento</h3>
-                        <ul class="space-y-4 text-stone-700">
-                            <li class="flex items-start">
-                                <span class="text-amber-600 font-bold mr-3 mt-1">1.</span>
-                                <div><strong class="text-stone-800">A Base do Risoto:</strong> Use um prato fundo. Sirva o risoto e bata suavemente na base do prato para que ele se espalhe em uma "onda" perfeita.</div>
-                            </li>
-                             <li class="flex items-start">
-                                <span class="text-amber-600 font-bold mr-3 mt-1">2.</span>
-                                <div><strong class="text-stone-800">O Lombo:</strong> Fatie o lombo em fatias de 1,5 cm e disponha 2-3 fatias sobrepostas ao lado do risoto.</div>
-                            </li>
-                             <li class="flex items-start">
-                                <span class="text-amber-600 font-bold mr-3 mt-1">3.</span>
-                                <div><strong class="text-stone-800">As Finalizações:</strong> Disponha figos frescos, regue mel, polvilhe a farofa, espete a tuile de parmesão e finalize com raspas de limão siciliano.</div>
-                            </li>
-                        </ul>
-                    </div>
-                    <div class="bg-white p-6 rounded-lg border border-stone-200">
-                        <h3 class="text-2xl font-bold mb-4 text-stone-800">Assistente de Harmonização</h3>
-                        <p class="text-stone-600 mb-4">Diga-me sua preferência (ex: "vinhos tintos leves", "cervejas artesanais", "opções sem álcool") e eu darei sugestões personalizadas.</p>
-                        <div class="flex flex-col sm:flex-row gap-2">
-                            <input type="text" id="pairing-preference" placeholder="Qual sua preferência?" class="flex-grow p-2 border border-stone-300 rounded-md focus:ring-amber-500 focus:border-amber-500">
-                            <button id="get-pairing-btn" class="bg-amber-600 text-white px-4 py-2 rounded-md hover:bg-amber-700 transition-colors flex items-center justify-center gap-2">
-                                <span class="btn-text">✨ Sugerir</span>
-                                <div class="spinner hidden"></div>
-                            </button>
-                        </div>
-                        <div id="pairing-result" class="mt-4 text-stone-700 bg-stone-50 p-4 rounded-md border border-stone-200 min-h-[100px]">
-                            <p class="text-stone-500">Suas sugestões personalizadas aparecerão aqui.</p>
-                        </div>
-                    </div>
-                 </div>
-
-                 <div class="mt-12 section-bg-contrast p-6 rounded-lg">
-                     <h3 class="text-2xl font-bold mb-4 text-center text-stone-800">Aprofundamento Culinário</h3>
-                     <div id="accordion-container" class="space-y-2 max-w-3xl mx-auto">
-                        <!-- Accordion items will be inserted here -->
-                     </div>
-                 </div>
-            </section>
-        </main>
-    </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            
-            const shoppingListData = [
-                { category: 'Açougue', items: ['Lombo suíno (peça única, temperada, ~2 kg)'] },
-                { category: 'Hortifrúti', items: ['Cebola branca (~3)', 'Cebola roxa (~1)', 'Cenoura (~3)', 'Salsão / Aipo (1 talo)', 'Alho (2 cabeças)', 'Limão siciliano (1)', 'Limão taiti (1)', 'Figos frescos (~2 bandejas)', 'Salsinha fresca (1 maço)', 'Tomilho fresco (1 maço)', 'Alecrim fresco (1 maço)'] },
-                { category: 'Laticínios e Frios', items: ['Queijo Gorgonzola Dolce (250 g)', 'Queijo Parmesão (peça, ~400 g)', 'Manteiga sem sal (2 tabletes de 200 g)'] },
-                { category: 'Mercearia e Grãos', items: ['Arroz Arbóreo (500 g)', 'Farinha de mandioca flocada (500 g)', 'Castanha-do-pará (150 g)', 'Castanha-de-caju torrada (150 g)', 'Mel de flor de laranjeira (250 g)', 'Vinho branco seco (750 ml)', 'Azeite de oliva extravirgem (500 ml)', 'Sal (fino e grosso)', 'Pimenta-do-reino em grãos', 'Folha de louro'] }
-            ];
-
-            const budgetData = {
-                labels: ['Lombo', 'Laticínios', 'Mercearia', 'Hortifrúti', 'Castanhas'],
-                datasets: [{
-                    label: 'Custo Estimado por Categoria',
-                    data: [45.60, 108.46, 84.39, 28.73, 48.74],
-                    backgroundColor: ['#A16207', '#CA8A04', '#EAB308', '#FACC15', '#FEF08A'],
-                    borderColor: '#FDFBF8',
-                    borderWidth: 4,
-                    hoverOffset: 10
-                }]
-            };
-
-            const timelineSteps = [
-                { type: 'prep', timing: 'Dia Anterior', title: 'Preparar o Caldo de Legumes', description: 'Doure intensamente os legumes (cenoura, salsão, cebola) com azeite. Adicione alho, água, ervas e cozinhe em fogo brando por 1h30. Coe e refrigere.' },
-                { type: 'prep', timing: 'Dia Anterior', title: 'Preparar a Farofa Crocante', description: 'Toste a farinha na manteiga até dourar. Separadamente, refogue cebola roxa e alho, adicione as castanhas picadas. Misture tudo, adicione salsinha e guarde em pote hermético.' },
-                { type: 'prep', timing: 'Dia do Jantar (T-4h)', title: 'Mise en Place do Risoto e Tuile', description: 'Pique a cebola, rale os queijos, esfarele o gorgonzola, corte os figos, separe a manteiga em cubos.' },
-                { type: 'final', timing: 'T-90 min', title: 'Pré-aquecer o forno', description: 'Pré-aqueça o forno a 180°C e retire o lombo da geladeira.' },
-                { type: 'final', timing: 'T-75 min', title: 'Selar e Assar o Lombo', description: 'Seque bem a superfície do lombo. Sele todos os lados em uma frigideira quente com azeite até formar uma crosta escura. Transfira para uma assadeira e leve ao forno.' },
-                { type: 'prep', timing: 'T-30 min', title: 'Preparar Tuiles de Parmesão', description: 'Em uma frigideira antiaderente em fogo baixo, polvilhe discos finos de parmesão ralado. Deixe derreter e dourar. Vire por 30s. Deixe esfriar para ficarem crocantes.' },
-                { type: 'final', timing: 'T-30 min', title: 'Aquecer o Caldo', description: 'Coloque o caldo de legumes para aquecer em fogo baixo. Ele precisa estar quente para o risoto.' },
-                { type: 'final', timing: 'T-25 min', title: 'Iniciar o Risoto', description: 'Faça o soffritto com cebola, manteiga e azeite. Adicione 4 figos picados e mel para caramelizar. Toste o arroz (tostatura) e deglaceie com vinho branco.' },
-                { type: 'final', timing: 'T-23 min', title: 'Cozinhar o Risoto (Cottura)', description: 'Adicione o caldo quente, uma concha por vez, mexendo constantemente por 15-18 minutos, até o arroz estar al dente.' },
-                { type: 'final', timing: 'T-10 min', title: 'Verificar e Descansar o Lombo', description: 'Use um termômetro: o lombo está pronto a 63°C. Retire do forno, cubra com alumínio e deixe descansar por 10-15 minutos. Este passo é inegociável.' },
-                { type: 'final', timing: 'T-2 min', title: 'Finalizar o Risoto (Mantecatura)', description: 'Fora do fogo, adicione manteiga gelada, gorgonzola, parmesão e mel. Mexa vigorosamente para criar uma emulsão cremosa (all\'onda). Deixe descansar por 2 minutos.' },
-                { type: 'final', timing: 'T-0 min', title: 'Montar e Servir', description: 'Fatie o lombo. Monte os pratos conforme as instruções de empratamento e sirva imediatamente.' },
-            ];
-            
-            const accordionItems = [
-                { title: 'A Lenda do Gorgonzola', content: 'A história conta sobre um queijeiro apaixonado que, distraído, misturou uma coalhada esquecida com a do dia seguinte, criando acidentalmente os bolsões de ar perfeitos para o fungo Penicillium se desenvolver e dar origem a este queijo icônico.' },
-                { title: 'O Coração do Risoto', content: 'Nascido nos campos alagados da Lombardia, norte da Itália, o risoto é a celebração da capacidade do arroz (Arbóreo, Carnaroli) de absorver sabores e liberar amido, criando uma textura cremosa única que define a culinária da região.' },
-                { title: 'Ideias para Sobras', content: 'Não desperdice as sobras de risoto e lombo! Transforme-as em novos pratos. Clique no botão para receber sugestões criativas.', isGemini: true, id: 'leftovers' }
-            ];
-            
-            const recipeDetailsData = [
-                {
-                    title: 'Caldo de Legumes Caseiro (A Base de Tudo)',
-                    hasChefTip: true,
-                    content: `
-                        <div class="recipe-content text-stone-700 space-y-4">
-                            <div>
-                                <h5 class="text-lg font-semibold mb-2 text-stone-800">Ingredientes:</h5>
-                                <ul class="space-y-1">
-                                    <li>3 cenouras médias, grosseiramente picadas</li>
-                                    <li>2 talos de salsão, grosseiramente picados</li>
-                                    <li>2 cebolas brancas, grosseiramente picadas</li>
-                                    <li>1 cabeça de alho, cortada ao meio horizontalmente</li>
-                                    <li>3 colheres de sopa de azeite de oliva extravirgem</li>
-                                    <li>3 litros de água fria</li>
-                                    <li>1 bouquet garni (ramos de tomilho, alecrim, folhas de louro e talos de salsinha amarrados)</li>
-                                    <li>Grãos de pimenta-do-reino a gosto</li>
-                                    <li>Sal (usar com moderação, o ajuste final será no risoto)</li>
-                                </ul>
-                            </div>
-                            <div>
-                                <h5 class="text-lg font-semibold mb-2 text-stone-800">Modo de Preparo:</h5>
-                                <ol class="space-y-2">
-                                    <li>Em uma panela grande e de fundo grosso, aqueça o azeite em fogo médio-alto. Adicione a cenoura, o salsão e a cebola.</li>
-                                    <li>Cozinhe, mexendo ocasionalmente, por 10-15 minutos, até que os legumes estejam bem dourados e caramelizados nas bordas. Esta etapa é o segredo para um caldo de cor rica e sabor profundo. Não tenha pressa.</li>
-                                    <li>Adicione a cabeça de alho e cozinhe por mais um minuto, até perfumar.</li>
-                                    <li>Despeje a água fria na panela, raspando o fundo para soltar quaisquer pedaços caramelizados.</li>
-                                    <li>Adicione o bouquet garni e os grãos de pimenta. Deixe a mistura ferver e, em seguida, reduza imediatamente o fogo para o mínimo possível, mantendo apenas uma fervura muito suave (simmer).</li>
-                                    <li>Cozinhe lentamente, com a panela parcialmente tampada, por no mínimo 1 hora e 30 minutos. Quanto mais tempo, mais saboroso.</li>
-                                    <li>Desligue o fogo e coe o caldo cuidadosamente usando uma peneira fina, descartando os sólidos. Prove e ajuste o sal levemente, se necessário.</li>
-                                </ol>
-                            </div>
-                        </div>`
-                },
-                {
-                    title: 'Lombo Suíno Assado',
-                    hasChefTip: true,
-                    content: `
-                        <div class="recipe-content text-stone-700 space-y-4">
-                            <div>
-                                <h5 class="text-lg font-semibold mb-2 text-stone-800">Ingredientes:</h5>
-                                <ul class="space-y-1">
-                                    <li>1 peça de lombo suíno (~2 kg), já temperada conforme comprado</li>
-                                    <li>2-3 colheres de sopa de azeite de oliva extravirgem</li>
-                                    <li>Ramos de tomilho e alecrim frescos</li>
-                                    <li>4-5 dentes de alho, levemente amassados com a faca</li>
-                                    <li>Pimenta-do-reino moída na hora</li>
-                                </ul>
-                            </div>
-                            <div>
-                                <h5 class="text-lg font-semibold mb-2 text-stone-800">Modo de Preparo:</h5>
-                                <ol class="space-y-2">
-                                    <li>Retire o lombo da geladeira 30-40 minutos antes de cozinhar para que atinja a temperatura ambiente. Pré-aqueça o forno a 180°C.</li>
-                                    <li>Seque completamente a superfície da carne com papel toalha. Isso é essencial para obter uma crosta bem dourada. Tempere generosamente com pimenta-do-reino moída na hora.</li>
-                                    <li>Em uma frigideira grande e pesada que possa ir ao forno (ou em uma frigideira comum), aqueça o azeite em fogo alto até começar a fumegar levemente.</li>
-                                    <li>Com cuidado, coloque o lombo na frigideira e sele todos os lados, incluindo as extremidades, até que uma crosta rica e marrom-escura se forme. Gire a peça a cada 2-3 minutos.</li>
-                                    <li>Se não estiver usando uma frigideira que vá ao forno, transfira o lombo selado para uma assadeira. Adicione os ramos de ervas e os dentes de alho ao redor da carne.</li>
-                                    <li>Leve ao forno pré-aquecido e asse por aproximadamente 50-60 minutos. O tempo exato pode variar. A maneira mais precisa de verificar o ponto é com um termômetro de cozinha: o centro da carne deve atingir 63°C para um resultado rosado e suculento.</li>
-                                    <li>Retire o lombo do forno, transfira para uma tábua de corte e cubra frouxamente com papel alumínio. Deixe a carne descansar por 10 a 15 minutos. Este passo é inegociável, pois permite que os sucos se redistribuam, garantindo uma carne macia.</li>
-                                    <li>Após o descanso, fatie o lombo em fatias de 1,5 cm de espessura, sempre contra a fibra da carne.</li>
-                                </ol>
-                            </div>
-                        </div>`
-                },
-                {
-                    title: 'Risoto de Figo, Gorgonzola e Mel',
-                    hasChefTip: true,
-                    content: `
-                        <div class="recipe-content text-stone-700 space-y-4">
-                            <div>
-                                <h5 class="text-lg font-semibold mb-2 text-stone-800">Ingredientes:</h5>
-                                <ul class="space-y-1">
-                                    <li>500g de arroz Arbóreo ou Carnaroli</li>
-                                    <li>1 cebola branca média, picada em cubos minúsculos (brunoise)</li>
-                                    <li>4 colheres de sopa de manteiga sem sal, gelada e em cubos (2 para o início, 2 para o final)</li>
-                                    <li>1 colher de sopa de azeite de oliva extravirgem</li>
-                                    <li>12 figos frescos e maduros (4 picados grosseiramente, 8 cortados em quartos para decorar)</li>
-                                    <li>2 colheres de sopa de mel de flor de laranjeira (ou outro de boa qualidade)</li>
-                                    <li>150ml de vinho branco seco e de boa qualidade</li>
-                                    <li>~1.5 a 2 litros de caldo de legumes, mantido em fervura branda</li>
-                                    <li>250g de queijo Gorgonzola Dolce, esfarelado</li>
-                                    <li>150g de queijo Parmesão, ralado na hora</li>
-                                    <li>Raspas de 1 limão siciliano para finalizar</li>
-                                    <li>Sal e pimenta-do-reino moída na hora</li>
-                                </ul>
-                            </div>
-                            <div>
-                                <h5 class="text-lg font-semibold mb-2 text-stone-800">Modo de Preparo (As 4 Etapas Cruciais):</h5>
-                                <ol class="space-y-2">
-                                    <li><strong>1. Soffritto (A Base de Sabor):</strong> Em uma panela larga e de fundo pesado, derreta 2 colheres de manteiga com o azeite em fogo médio. Adicione a cebola picada e uma pitada de sal. Refogue lentamente por 5-7 minutos, até que a cebola esteja macia, translúcida e adocicada, mas sem pegar cor.</li>
-                                    <li><strong>2. Tostatura (A Selagem do Grão):</strong> Aumente o fogo, adicione o arroz à panela e mexa constantemente por 2 a 3 minutos. Você ouvirá um som de "areia" e os grãos ficarão levemente transparentes nas bordas. Esta etapa sela o amido externo e garante que o risoto fique cremoso, mas com os grãos inteiros. Deglaceie com o vinho branco, mexendo vigorosamente e raspando o fundo da panela, até que o álcool evapore por completo.</li>
-                                    <li><strong>3. Cottura (O Cozimento):</strong> Reduza o fogo para médio-baixo. Adicione a primeira concha de caldo quente, apenas o suficiente para cobrir o arroz. Mexa gentilmente, mas de forma contínua. Conforme o caldo for sendo absorvido, adicione a próxima concha. Continue este processo por aproximadamente 15-18 minutos. O movimento constante ajuda a liberar o amido, criando a cremosidade característica. Na metade do tempo, adicione os 4 figos picados. Prove o arroz; ele deve estar "al dente" – cozido, mas com uma leve resistência no centro.</li>
-                                    <li><strong>4. Mantecatura (A Emulsão Final):</strong> Retire a panela do fogo. Este é o momento mais importante. Adicione a manteiga gelada em cubos, o queijo Gorgonzola esfarelado, a maior parte do queijo Parmesão (reserve um pouco para servir) e o mel. Mexa vigorosamente com uma colher de pau para criar uma emulsão cremosa e aveludada. O risoto deve ficar fluido, formando uma "onda" (all'onda) ao inclinar a panela. Prove e ajuste o sal e a pimenta. Tampe a panela e deixe descansar por 2 minutos antes de servir.</li>
-                                </ol>
-                            </div>
-                        </div>`
-                },
-                {
-                    title: 'Farofa Crocante de Castanhas',
-                    hasChefTip: true,
-                    content: `
-                        <div class="recipe-content text-stone-700 space-y-4">
-                            <div>
-                                <h5 class="text-lg font-semibold mb-2 text-stone-800">Ingredientes:</h5>
-                                <ul class="space-y-1">
-                                    <li>300g de farinha de mandioca flocada (tipo biju)</li>
-                                    <li>4-5 colheres de sopa de manteiga sem sal</li>
-                                    <li>1 cebola roxa pequena, cortada em cubos pequenos</li>
-                                    <li>2 dentes de alho picados</li>
-                                    <li>150g de mix de castanha-do-pará e castanha-de-caju, grosseiramente picadas</li>
-                                    <li>Um punhado de salsinha fresca, picada</li>
-                                    <li>Sal e pimenta-do-reino a gosto</li>
-                                </ul>
-                            </div>
-                            <div>
-                                <h5 class="text-lg font-semibold mb-2 text-stone-800">Modo de Preparo:</h5>
-                                <ol class="space-y-2">
-                                    <li>Em uma frigideira grande, derreta a manteiga em fogo médio. Adicione a cebola roxa e refogue até ficar macia e translúcida.</li>
-                                    <li>Acrescente o alho picado e cozinhe por mais um minuto, até perfumar.</li>
-                                    <li>Adicione as castanhas picadas e toste-as na manteiga por 2-3 minutos, mexendo sempre para não queimar.</li>
-                                    <li>Reduza o fogo e adicione a farinha de mandioca aos poucos, mexendo constantemente para que todos os flocos fiquem envoltos na manteiga.</li>
-                                    <li>Continue cozinhando e mexendo por 5-8 minutos, até que a farofa esteja dourada, crocante e muito perfumada.</li>
-                                    <li>Desligue o fogo, incorpore a salsinha fresca picada e tempere com sal e pimenta-do-reino a gosto. Deixe esfriar completamente antes de guardar em um pote hermético para manter a crocância.</li>
-                                </ol>
-                            </div>
-                        </div>`
-                },
-                {
-                    title: 'Tuile de Parmesão',
-                    hasChefTip: true,
-                    content: `
-                        <div class="recipe-content text-stone-700 space-y-4">
-                            <div>
-                                <h5 class="text-lg font-semibold mb-2 text-stone-800">Ingredientes:</h5>
-                                <ul class="space-y-1">
-                                    <li>100g de queijo Parmesão de boa qualidade, ralado na hora (não usar o de saquinho)</li>
-                                </ul>
-                            </div>
-                            <div>
-                                <h5 class="text-lg font-semibold mb-2 text-stone-800">Modo de Preparo:</h5>
-                                <ol class="space-y-2">
-                                    <li>Pré-aqueça uma frigideira antiaderente grande em fogo médio-baixo.</li>
-                                    <li>Faça pequenos montes de parmesão ralado na frigideira, deixando espaço entre eles. Use as costas de uma colher para achatar cada monte, formando discos finos e uniformes de cerca de 5-7 cm de diâmetro.</li>
-                                    <li>Cozinhe por 1-2 minutos, sem mexer, até o queijo derreter completamente e as bordas começarem a ficar douradas e borbulhantes.</li>
-                                    <li>Com uma espátula fina, vire cuidadosamente cada disco e cozinhe por mais 30 segundos do outro lado, apenas para firmar.</li>
-                                    <li>Retire as tuiles da frigideira e coloque-as sobre uma folha de papel toalha para absorver o excesso de gordura. Elas ficarão crocantes ao esfriar.</li>
-                                    <li>Para um formato curvo, você pode colocá-las ainda quentes sobre um rolo de massa ou uma garrafa. Manuseie com cuidado, pois são delicadas.</li>
-                                </ol>
-                            </div>
-                        </div>`
-                }
-            ];
-
-            const tabs = document.querySelectorAll('.tab-btn');
-            const contents = document.querySelectorAll('.tab-content');
-
-            tabs.forEach(tab => {
-                tab.addEventListener('click', () => {
-                    const target = tab.getAttribute('data-tab');
-
-                    tabs.forEach(t => {
-                        t.classList.remove('tab-active');
-                        t.classList.add('tab-inactive');
-                    });
-                    tab.classList.add('tab-active');
-                    tab.classList.remove('tab-inactive');
-
-                    contents.forEach(content => {
-                        if (content.id === target) {
-                            content.classList.remove('hidden');
-                        } else {
-                            content.classList.add('hidden');
-                        }
-                    });
-                });
-            });
-            
-            function renderShoppingList() {
-                const container = document.getElementById('shopping-list');
-                container.innerHTML = '';
-                shoppingListData.forEach(category => {
-                    const categoryDiv = document.createElement('div');
-                    categoryDiv.innerHTML = `<h3 class="text-xl font-bold text-stone-700 mb-2">${category.category}</h3>`;
-                    const ul = document.createElement('ul');
-                    ul.className = 'space-y-2';
-                    category.items.forEach(item => {
-                        const uniqueId = `item-${Math.random().toString(36).substr(2, 9)}`;
-                        const li = document.createElement('li');
-                        li.innerHTML = `
-                            <input type="checkbox" id="${uniqueId}" class="mr-2 accent-amber-600">
-                            <label for="${uniqueId}" class="text-stone-600">${item}</label>
-                        `;
-                        ul.appendChild(li);
-                    });
-                    categoryDiv.appendChild(ul);
-                    container.appendChild(categoryDiv);
-                });
-            }
-
-            function createBudgetChart() {
-                const ctx = document.getElementById('budgetChart').getContext('2d');
-                new Chart(ctx, {
-                    type: 'doughnut',
-                    data: budgetData,
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    font: { family: "'Roboto', sans-serif" }
-                                }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        let label = context.label || '';
-                                        if (label) {
-                                            label += ': ';
-                                        }
-                                        if (context.parsed !== null) {
-                                            label += new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(context.parsed);
-                                        }
-                                        return label;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-            
-            function renderTimeline(filter = 'all') {
-                const container = document.getElementById('timeline-container');
-                container.innerHTML = '';
-                const filteredSteps = timelineSteps.filter(step => filter === 'all' || step.type === filter);
-                
-                filteredSteps.forEach(step => {
-                    const stepDiv = document.createElement('div');
-                    stepDiv.className = 'timeline-item relative pb-8';
-                    const timingColor = step.type === 'prep' ? 'text-sky-700' : 'text-red-700';
-                    const bgColor = step.type === 'prep' ? 'bg-sky-50' : 'bg-red-50';
-
-                    stepDiv.innerHTML = `
-                        <div class="p-4 rounded-lg border ${bgColor} border-stone-200 shadow-sm">
-                            <p class="font-bold ${timingColor} text-sm">${step.timing.toUpperCase()}</p>
-                            <h4 class="text-xl font-bold text-stone-800 mt-1">${step.title}</h4>
-                            <p class="text-stone-600 mt-2">${step.description}</p>
-                        </div>
-                    `;
-                    container.appendChild(stepDiv);
-                });
-            }
-
-            const filterButtons = document.querySelectorAll('.timeline-filter-btn');
-            filterButtons.forEach(button => {
-                button.addEventListener('click', () => {
-                    const filter = button.getAttribute('data-filter');
-                    renderTimeline(filter);
-                    filterButtons.forEach(btn => {
-                        btn.classList.remove('bg-amber-600', 'text-white');
-                        btn.classList.add('bg-stone-200', 'text-stone-700');
-                    });
-                    button.classList.add('bg-amber-600', 'text-white');
-                    button.classList.remove('bg-stone-200', 'text-stone-700');
-                });
-            });
-            
-            function createGenericAccordion(containerId, items) {
-                const container = document.getElementById(containerId);
-                if (!container) return;
-                container.innerHTML = '';
-                
-                items.forEach((item, index) => {
-                    const itemDiv = document.createElement('div');
-                    itemDiv.className = 'border border-stone-300 rounded-lg overflow-hidden';
-                    
-                    let contentHtml = item.content;
-
-                    if (item.isGemini) {
-                        contentHtml = `<p class="text-stone-600 mb-4">${item.content}</p>
-                         <div class="mt-4">
-                            <button id="get-${item.id}-btn" class="bg-amber-600 text-white px-4 py-2 rounded-md hover:bg-amber-700 transition-colors flex items-center justify-center gap-2">
-                                <span class="btn-text">✨ Gerar Ideias</span>
-                                <div class="spinner hidden"></div>
-                            </button>
-                            <div id="${item.id}-result" class="mt-4 text-stone-700 bg-stone-50 p-4 rounded-md border border-stone-200 min-h-[100px]">
-                                <p class="text-stone-500">Suas ideias criativas aparecerão aqui.</p>
-                            </div>
-                        </div>`;
-                    } else if (item.hasChefTip) {
-                        contentHtml += `
-                            <div class="mt-6 pt-4 border-t border-dashed border-stone-300">
-                                <button id="get-chef-tip-btn-${index}" data-recipe-title="${item.title}" class="bg-transparent border border-amber-600 text-amber-700 px-4 py-2 rounded-md hover:bg-amber-50 transition-colors flex items-center justify-center gap-2">
-                                    <span class="btn-text">✨ Dica do Chef</span>
-                                    <div class="spinner hidden"></div>
-                                </button>
-                                <div id="chef-tip-result-${index}" class="mt-4 text-stone-700 bg-amber-50/60 p-4 rounded-md border border-amber-200 min-h-[75px] hidden">
-                                </div>
-                            </div>
-                        `;
-                    }
-
-                    itemDiv.innerHTML = `
-                        <h2>
-                            <button type="button" class="flex items-center justify-between w-full p-5 font-medium text-left text-stone-800 accordion-trigger-bg transition-colors duration-200" data-accordion-trigger>
-                                <span class="text-xl font-bold">${item.title}</span>
-                                <svg class="w-4 h-4 shrink-0 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                            </button>
-                        </h2>
-                        <div class="hidden p-5 border-t border-stone-300 bg-white">
-                            ${contentHtml}
-                        </div>
-                    `;
-                    container.appendChild(itemDiv);
-                });
-
-                const triggers = container.querySelectorAll('[data-accordion-trigger]');
-                triggers.forEach(trigger => {
-                    trigger.addEventListener('click', function() {
-                        const content = this.parentElement.nextElementSibling;
-                        const isOpen = content.classList.contains('hidden');
-
-                        triggers.forEach(otherTrigger => {
-                            if (otherTrigger !== this) {
-                                otherTrigger.parentElement.nextElementSibling.classList.add('hidden');
-                                otherTrigger.querySelector('svg').classList.remove('rotate-180');
-                            }
-                        });
-
-                        content.classList.toggle('hidden');
-                        this.querySelector('svg').classList.toggle('rotate-180');
-                    });
-                });
-            }
-
-            // Gemini API Call Function - REVISED WITH TIMEOUT
-            async function callGemini(prompt, button, resultContainer) {
-                const spinner = button.querySelector('.spinner');
-                const btnText = button.querySelector('.btn-text');
-
-                spinner.classList.remove('hidden');
-                btnText.classList.add('hidden');
-                button.disabled = true;
-                resultContainer.innerHTML = '<p class="text-stone-500">Gerando sugestões...</p>';
-                resultContainer.classList.remove('hidden');
-                
-                const apiKey = "AIzaSyB8DEuOcAad3AGQt-Yude4-B83l8ZFayzE";
-
-                if (apiKey === "COLE_SUA_CHAVE_DE_API_AQUI") {
-                    resultContainer.innerHTML = `<p class="text-red-500"><strong>Erro de Configuração:</strong> Você precisa adicionar sua própria chave de API do Gemini no código para que a IA funcione.</p>`;
-                    spinner.classList.add('hidden');
-                    btnText.classList.remove('hidden');
-                    button.disabled = false;
-                    return;
-                }
-
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-                const payload = {
-                    contents: [{ role: "user", parts: [{ text: prompt }] }]
-                };
-
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 30000); // 30-second timeout
-
-                try {
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload),
-                        signal: controller.signal
-                    });
-
-                    clearTimeout(timeoutId);
-
-                    if (!response.ok) {
-                        const errorBody = await response.json().catch(() => ({ error: { message: "Não foi possível ler a resposta de erro da API." } }));
-                        console.error("API Error Response:", errorBody);
-                        throw new Error(`Falha na comunicação com a API (${response.status}) - ${errorBody.error.message}`);
-                    }
-
-                    const result = await response.json();
-                    const text = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-                    if (text) {
-                        resultContainer.innerHTML = text;
-                    } else {
-                        console.error("Invalid API response structure:", result);
-                        throw new Error("A API retornou uma resposta inesperada.");
-                    }
-                } catch (error) {
-                    if (error.name === 'AbortError') {
-                        console.error("API call timed out.");
-                        resultContainer.innerHTML = `<p class="text-red-500">A requisição demorou muito para responder. Verifique sua conexão com a internet e tente novamente.</p>`;
-                    } else {
-                        console.error("Erro ao chamar a API Gemini:", error);
-                        resultContainer.innerHTML = `<p class="text-red-500">Desculpe, ocorreu um erro. Verifique sua conexão ou a validade da sua chave de API. (Detalhe: ${error.message})</p>`;
-                    }
-                } finally {
-                    spinner.classList.add('hidden');
-                    btnText.classList.remove('hidden');
-                    button.disabled = false;
-                }
-            }
-
-            // Event Listeners for Gemini Features
-            function setupGeminiButtonListeners() {
-                const getPairingBtn = document.getElementById('get-pairing-btn');
-                if(getPairingBtn) {
-                    const pairingPreference = document.getElementById('pairing-preference');
-                    const pairingResult = document.getElementById('pairing-result');
-                    getPairingBtn.addEventListener('click', () => {
-                        const preference = pairingPreference.value.trim() || 'qualquer uma';
-                        const prompt = `Você é um sommelier de classe mundial. Para um menu de 'Risoto de figo com gorgonzola' e 'Lombo suíno assado', o cliente tem a seguinte preferência: '${preference}'. Com base ESTRITAMENTE nessa preferência, forneça 2-3 sugestões de harmonização. Se a preferência for "vinhos tintos", dê apenas vinhos tintos. Se for "sem álcool", dê apenas opções sem álcool. Explique cada escolha. Sua resposta DEVE ser em formato HTML. Use tags <h4> para os títulos e <p> para as descrições. Não inclua <html> ou <body> tags.`;
-                        callGemini(prompt, getPairingBtn, pairingResult);
-                    });
-                }
-
-                const getLeftoversBtn = document.getElementById('get-leftovers-btn');
-                if (getLeftoversBtn) {
-                    const leftoversResult = document.getElementById('leftovers-result');
-                    getLeftoversBtn.addEventListener('click', () => {
-                        const prompt = `Você é um chef criativo. Tenho sobras de 'risoto de figo com gorgonzola' e 'lombo suíno assado'. Dê 3 ideias de pratos para transformar essas sobras. Sua resposta DEVE ser em formato HTML. Use <h4> para o nome de cada novo prato e <p> para a descrição breve. Não inclua <html> ou <body> tags.`;
-                        callGemini(prompt, getLeftoversBtn, leftoversResult);
-                    });
-                }
-                
-                const getSubstituteBtn = document.getElementById('get-substitute-btn');
-                if(getSubstituteBtn) {
-                    const substituteIngredient = document.getElementById('substitute-ingredient');
-                    const substituteResult = document.getElementById('substitute-result');
-                    getSubstituteBtn.addEventListener('click', () => {
-                        const ingredient = substituteIngredient.value;
-                        if (!ingredient) {
-                            substituteResult.innerHTML = '<p class="text-red-500">Por favor, digite um ingrediente para substituir.</p>';
-                            substituteResult.classList.remove('hidden');
-                            return;
-                        }
-                        const prompt = `Você é um chef de cozinha experiente. Para um menu com 'lombo suíno' e 'risoto de figo com gorgonzola', preciso de substituições para o seguinte ingrediente: '${ingredient}'. Forneça 1 ou 2 alternativas práticas. Explique as implicações de sabor/textura e ajustes de quantidade. Sua resposta DEVE ser em formato HTML. Use <h4> para o nome do substituto e <p> para a explicação. Não inclua <html> ou <body> tags.`;
-                        callGemini(prompt, getSubstituteBtn, substituteResult);
-                    });
-                }
-
-                recipeDetailsData.forEach((recipe, index) => {
-                    if (recipe.hasChefTip) {
-                        const btn = document.getElementById(`get-chef-tip-btn-${index}`);
-                        const resultContainer = document.getElementById(`chef-tip-result-${index}`);
-                        if(btn && resultContainer) {
-                            btn.addEventListener('click', () => {
-                                const recipeTitle = btn.getAttribute('data-recipe-title');
-                                const prompt = `Você é um chef com estrela Michelin. Dê uma dica profissional, avançada e não óbvia para elevar a receita de '${recipeTitle}'. A dica deve ser sobre técnica, um ingrediente secreto ou um passo crucial que a maioria das pessoas ignora. Sua resposta DEVE ser em formato HTML. Use um parágrafo <p> conciso e inspirador.`;
-                                callGemini(prompt, btn, resultContainer);
-                            });
-                        }
-                    }
-                });
-            }
-
-            // Initial Renders
-            renderShoppingList();
-            createBudgetChart();
-            renderTimeline();
-            createGenericAccordion('accordion-container', accordionItems);
-            createGenericAccordion('recipe-accordion-container', recipeDetailsData);
-            setupGeminiButtonListeners();
-        });
-    </script>
-</body>
-</html>
+<!DOCTYPE html><html lang="pt-BR" class=""><head>    <meta charset="UTF-8">    <meta name="viewport" content="width=device-width, initial-scale=1.0">    <title>Banquete Na N1 - Guia Culinário</title>    <script src="https://cdn.tailwindcss.com"></script>    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>    <link rel="preconnect" href="https://fonts.googleapis.com">    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;700&display=swap" rel="stylesheet">        <script>        // On page load or when changing themes, best to add inline in `head` to avoid FOUC        if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {            document.documentElement.classList.add('dark');        } else {            document.documentElement.classList.remove('dark')        }    </script>    <style>        body {            font-family: 'Inter', sans-serif;            background-color: #FDFBF8;            color: #3d3731;        }        .dark body {            background-color: #111827; /* Gray 900 */            color: #d1d5db; /* Gray 300 */        }        h1, h2, h3, h4, h5 {            font-family: 'Playfair Display', serif;        }        .tab-active {            border-bottom-color: #D97706; /* Amber-600 */            color: #B45309; /* Amber-700 */            font-weight: 700;        }        .dark .tab-active {            border-bottom-color: #FBBF24; /* Amber 400 */            color: #FCD34D; /* Amber 300 */        }        .tab-inactive {            border-bottom-color: transparent;            color: #78716C; /* Stone-500 */        }        .dark .tab-inactive {            color: #9ca3af; /* Gray 400 */        }        .chart-container {            position: relative;            width: 100%;            max-width: 450px;            margin-left: auto;            margin-right: auto;            height: 300px;            max-height: 400px;        }        @media (min-width: 768px) {            .chart-container {                height: 400px;            }        }        .timeline-item::before {            content: '';            position: absolute;            top: 1rem;            left: -1.4rem;            width: 1.25rem;            height: 1.25rem;            border-radius: 50%;            background-color: #F5F5F4; /* Stone-200 */            border: 3px solid #D97706; /* Amber-600 */        }        .dark .timeline-item::before {            background-color: #374151; /* Gray 700 */            border-color: #FBBF24; /* Amber 400 */        }        .timeline-line {            position: absolute;            top: 1rem;            left: -0.875rem; /* Centered on the dot */            width: 2px;            height: 100%;            background-color: #E7E5E4; /* Stone-200 */        }        .dark .timeline-line {            background-color: #4b5563; /* Gray 600 */        }        .recipe-step-item input[type="checkbox"]:checked + label {            text-decoration: line-through;            color: #A8A29E; /* Stone-400 */        }        .dark .recipe-step-item input[type="checkbox"]:checked + label {            color: #6b7280; /* Gray 500 */        }        .spinner {            border: 4px solid rgba(0, 0, 0, 0.1);            width: 24px;            height: 24px;            border-radius: 50%;            border-left-color: #D97706;            animation: spin 1s ease infinite;        }        .dark .spinner {            border-left-color: #FBBF24;        }        @keyframes spin {            0% { transform: rotate(0deg); }            100% { transform: rotate(360deg); }        }        .recipe-content ul { list-style-type: disc; list-style-position: inside; padding-left: 1rem; }        .recipe-content ol { list-style-type: decimal; list-style-position: inside; padding-left: 1rem; }        .section-bg-contrast { background-color: #FAFAF9; }        .dark .section-bg-contrast { background-color: #1f2937; }        .accordion-trigger-bg { background-color: #F5F5F4; }        .dark .accordion-trigger-bg { background-color: #374151; }        .accordion-trigger-bg:hover { background-color: #E7E5E4; }        .dark .accordion-trigger-bg:hover { background-color: #4b5563; }        .card-bg { background-color: #ffffff; }        .dark .card-bg { background-color: #1f2937; }        .card-border { border-color: #e5e7eb; }        .dark .card-border { border-color: #4b5563; }        .text-main-title { color: #854d0e; }        .dark .text-main-title { color: #fde68a; }        .text-subtitle { color: #44403c; }        .dark .text-subtitle { color: #d1d5db; }        .text-section-title { color: #854d0e; }        .dark .text-section-title { color: #fde68a; }        .text-body { color: #44403c; }        .dark .text-body { color: #d1d5db; }        .text-muted { color: #78716c; }        .dark .text-muted { color: #9ca3af; }        .sticky-nav { position: -webkit-sticky; position: sticky; top: 6rem; align-self: flex-start; }    </style></head><body class="antialiased transition-colors duration-500">    <div class="container mx-auto p-4 md:p-8 max-w-7xl">        <!-- Header -->        <header class="text-center mb-8 md:mb-12 relative">            <h1 class="text-4xl md:text-6xl font-bold text-main-title">Banquete Na N1</h1>            <p class="text-lg md:text-xl text-subtitle mt-2">Menu Interativo By: João Solagna</p>            <button id="theme-toggle" type="button" class="absolute top-0 right-0 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-4 focus:ring-gray-200 dark:focus:ring-gray-700 rounded-lg text-sm p-2.5">                <svg id="theme-toggle-dark-icon" class="hidden w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>                <svg id="theme-toggle-light-icon" class="hidden w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" fill-rule="evenodd" clip-rule="evenodd"></path></svg>            </button>        </header>        <!-- Navigation Tabs -->        <nav class="flex flex-wrap justify-center border-b border-stone-300 dark:border-gray-700 mb-8 sticky top-0 bg-opacity-80 backdrop-blur-sm z-10 bg-inherit">            <button data-tab="visao-geral" class="tab-btn tab-active text-sm md:text-base py-3 px-4 md:px-6 border-b-2 transition-colors duration-300">Visão Geral</button>            <button data-tab="receitas" class="tab-btn tab-inactive text-sm md:text-base py-3 px-4 md:px-6 border-b-2 transition-colors duration-300">Receitas</button>            <button data-tab="planejamento" class="tab-btn tab-inactive text-sm md:text-base py-3 px-4 md:px-6 border-b-2 transition-colors duration-300">Planejamento</button>            <button data-tab="execucao" class="tab-btn tab-inactive text-sm md:text-base py-3 px-4 md:px-6 border-b-2 transition-colors duration-300">Execução</button>            <button data-tab="finalizacao" class="tab-btn tab-inactive text-sm md:text-base py-3 px-4 md:px-6 border-b-2 transition-colors duration-300">Finalização</button>        </nav>        <!-- Content Sections -->        <main>            <!-- Visão Geral Section -->            <section id="visao-geral" class="tab-content p-4 md:p-6 rounded-lg">                <div class="card-bg p-6 md:p-8 rounded-lg shadow-sm border card-border">                    <h2 class="text-3xl md:text-4xl font-bold mb-4 text-section-title">A Filosofia do Prato</h2>                    <p class="text-base md:text-lg leading-relaxed text-body">                        A concepção de um jantar memorável reside não apenas na excelência dos pratos individuais, mas na sinfonia que eles compõem em conjunto. O menu aqui proposto — um Lombo Suíno Assado, acompanhado por uma Farofa Crocante de Castanhas e um Risoto de Figo Fresco, Gorgonzola e Mel — é uma celebração de contrastes deliberados e harmonias complexas, desenhado para um paladar que aprecia a sofisticação nos detalhes. A dinâmica de sabores é o pilar desta experiência, onde o salgado encontra o doce, e o cremoso dança com o crocante, transformando a refeição em uma exploração sensorial.                    </p>                </div>                <div class="grid md:grid-cols-3 gap-6 mt-8">                    <div class="card-bg p-6 rounded-lg border card-border hover:shadow-md transition-shadow">                        <h3 class="text-2xl font-bold mb-2 text-subtitle">Lombo Suíno Assado</h3>                        <p class="text-muted">Suculento e com uma crosta perfeitamente dourada, serve como a base robusta do prato principal.</p>                    </div>                    <div class="card-bg p-6 rounded-lg border card-border hover:shadow-md transition-shadow">                        <h3 class="text-2xl font-bold mb-2 text-subtitle">Risoto de Figo & Gorgonzola</h3>                        <p class="text-muted">Um equilíbrio primoroso entre o doce do figo e do mel e o salgado intenso do queijo gorgonzola.</p>                    </div>                    <div class="card-bg p-6 rounded-lg border card-border hover:shadow-md transition-shadow">                        <h3 class="text-2xl font-bold mb-2 text-subtitle">Farofa & Tuile Crocantes</h3>                        <p class="text-muted">A textura que surpreende, com a crocância da farofa de castanhas e a elegância da tuile de parmesão.</p>                    </div>                </div>            </section>                        <!-- Receitas Section -->            <section id="receitas" class="tab-content hidden p-4 md:p-6 rounded-lg section-bg-contrast">                <h2 class="text-3xl md:text-4xl font-bold mb-6 text-section-title text-center">Receitas Detalhadas</h2>                <p class="text-center text-muted mb-8 max-w-2xl mx-auto">Clique no título de uma receita para expandir seus detalhes. Marque os passos concluídos para acompanhar seu progresso.</p>                <div id="recipe-accordion-container" class="space-y-2 max-w-4xl mx-auto">                    <!-- Recipe accordion will be generated here -->                </div>            </section>            <!-- Planejamento Section -->            <section id="planejamento" class="tab-content hidden p-4 md:p-6 rounded-lg">                <div class="grid lg:grid-cols-5 gap-8">                    <div class="lg:col-span-3">                        <h2 class="text-3xl font-bold mb-4 text-section-title">Lista de Compras</h2>                        <p class="text-muted mb-6">Use esta lista interativa para organizar suas compras. O menu ao lado acompanha sua rolagem.</p>                        <div id="shopping-list-container" class="space-y-4"></div>                    </div>                    <div class="lg:col-span-2">                         <div class="sticky-nav">                             <h3 class="text-xl font-bold mb-4 text-section-title">Navegar na Lista</h3>                             <div id="shopping-list-nav" class="space-y-2"></div>                             <h2 class="text-3xl font-bold mb-4 mt-8 text-section-title">Orçamento e IA</h2>                             <div class="card-bg p-4 md:p-6 rounded-lg border card-border mb-6">                                <div class="chart-container">                                    <canvas id="budgetChart"></canvas>                                </div>                                <div id="budget-summary" class="mt-4 text-center"></div>                             </div>                             <div class="card-bg p-6 rounded-lg border card-border">                                <h3 class="text-2xl font-bold mb-4 text-subtitle">Assistente de Substituições</h3>                                <p class="text-muted mb-4">Faltou um ingrediente? Digite o nome e a IA encontrará a melhor alternativa.</p>                                <div class="flex flex-col sm:flex-row gap-2">                                    <input type="text" id="substitute-ingredient" placeholder="Ex: Queijo Gorgonzola" class="flex-grow p-2 border card-border rounded-md focus:ring-amber-500 focus:border-amber-500 bg-inherit">                                    <button id="get-substitute-btn" class="bg-amber-600 text-white px-4 py-2 rounded-md hover:bg-amber-700 transition-colors flex items-center justify-center gap-2">                                        <span class="btn-text">✨ Encontrar</span>                                        <div class="spinner hidden"></div>                                    </button>                                </div>                                <div id="substitute-result" class="mt-4 text-body bg-stone-50 dark:bg-gray-800 p-4 rounded-md border card-border min-h-[100px]">                                    <p class="text-muted">As sugestões de substituição aparecerão aqui.</p>                                </div>                            </div>                         </div>                    </div>                </div>            </section>            <!-- Execução Section -->            <section id="execucao" class="tab-content hidden p-4 md:p-6 rounded-lg section-bg-contrast">                <div class="text-center">                    <h2 class="text-3xl md:text-4xl font-bold mb-2 text-section-title">Linha do Tempo da Execução</h2>                    <p class="text-muted mb-6">Siga a linha do tempo para uma execução perfeita ou use o Modo Cozinhar para uma experiência focada.</p>                    <button id="cook-mode-btn" class="mb-8 bg-amber-600 text-white px-6 py-3 rounded-lg shadow-lg hover:bg-amber-700 transition-all transform hover:scale-105 flex items-center justify-center gap-2 mx-auto">                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.636 5.636a9 9 0 0112.728 0M18.364 18.364A9 9 0 015.636 5.636" /></svg>                        Modo Cozinhar                    </button>                    <div class="flex justify-center space-x-2 mb-8">                        <button data-filter="all" class="timeline-filter-btn bg-amber-600 text-white px-4 py-2 rounded-full shadow">Tudo</button>                        <button data-filter="prep" class="timeline-filter-btn bg-stone-200 dark:bg-gray-700 text-stone-700 dark:text-gray-300 px-4 py-2 rounded-full">Preparo Antecipado</button>                        <button data-filter="final" class="timeline-filter-btn bg-stone-200 dark:bg-gray-700 text-stone-700 dark:text-gray-300 px-4 py-2 rounded-full">Execução Final</button>                    </div>                </div>                <div class="relative pl-8 max-w-3xl mx-auto">                    <div class="timeline-line"></div>                    <div id="timeline-container" class="space-y-8"></div>                </div>            </section>            <!-- Finalização e Dicas Section -->            <section id="finalizacao" class="tab-content hidden p-4 md:p-6 rounded-lg">                 <h2 class="text-3xl md:text-4xl font-bold mb-6 text-section-title">Finalização e Dicas do Chef</h2>                 <div class="grid md:grid-cols-2 gap-8">                    <div class="card-bg p-6 rounded-lg border card-border">                        <h3 class="text-2xl font-bold mb-4 text-subtitle">A Arte do Empratamento</h3>                        <ul class="space-y-4 text-muted">                            <li class="flex items-start">                                <span class="text-amber-600 dark:text-amber-400 font-bold mr-3 mt-1">1.</span>                                <div><strong class="text-body">A Base do Risoto:</strong> Use um prato fundo. Sirva o risoto e bata suavemente na base do prato para que ele se espalhe em uma "onda" perfeita.</div>                            </li>                             <li class="flex items-start">                                <span class="text-amber-600 dark:text-amber-400 font-bold mr-3 mt-1">2.</span>                                <div><strong class="text-body">O Lombo:</strong> Fatie o lombo em fatias de 1,5 cm e disponha 2-3 fatias sobrepostas ao lado do risoto.</div>                            </li>                             <li class="flex items-start">                                <span class="text-amber-600 dark:text-amber-400 font-bold mr-3 mt-1">3.</span>                                <div><strong class="text-body">As Finalizações:</strong> Disponha figos frescos, regue mel, polvilhe a farofa, espete a tuile de parmesão e finalize com raspas de limão siciliano.</div>                            </li>                        </ul>                    </div>                    <div class="card-bg p-6 rounded-lg border card-border">                        <h3 class="text-2xl font-bold mb-4 text-subtitle">Assistente de Harmonização</h3>                        <p class="text-muted mb-4">Diga-me sua preferência (ex: "vinhos tintos leves", "cervejas artesanais") e eu darei sugestões personalizadas.</p>                        <div class="flex flex-col sm:flex-row gap-2">                            <input type="text" id="pairing-preference" placeholder="Qual sua preferência?" class="flex-grow p-2 border card-border rounded-md focus:ring-amber-500 focus:border-amber-500 bg-inherit">                            <button id="get-pairing-btn" class="bg-amber-600 text-white px-4 py-2 rounded-md hover:bg-amber-700 transition-colors flex items-center justify-center gap-2">                                <span class="btn-text">✨ Sugerir</span>                                <div class="spinner hidden"></div>                            </button>                        </div>                        <div id="pairing-result" class="mt-4 text-body bg-stone-50 dark:bg-gray-800 p-4 rounded-md border card-border min-h-[100px]">                            <p class="text-muted">Suas sugestões personalizadas aparecerão aqui.</p>                        </div>                    </div>                 </div>                 <div class="mt-12 section-bg-contrast p-6 rounded-lg">                     <h3 class="text-2xl font-bold mb-4 text-center text-subtitle">Aprofundamento Culinário</h3>                     <div id="accordion-container" class="space-y-2 max-w-3xl mx-auto">                        <!-- Accordion items will be inserted here -->                     </div>                 </div>            </section>        </main>    </div>    <!-- Cook Mode Modal -->    <div id="cook-mode-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-95 z-50 flex flex-col items-center justify-center p-4 text-white">        <button id="cook-mode-close-btn" class="absolute top-4 right-4 text-white text-4xl">&times;</button>        <div id="cook-mode-content" class="text-center w-full max-w-2xl">            <h2 id="cook-mode-step-title" class="text-4xl font-bold text-amber-300 mb-6"></h2>            <p id="cook-mode-step-description" class="text-2xl leading-relaxed mb-8"></p>            <div id="cook-mode-timer" class="text-6xl font-mono mb-8"></div>            <button id="cook-mode-timer-btn" class="hidden bg-amber-500 text-white px-6 py-3 rounded-lg text-xl">Iniciar Timer</button>        </div>        <div class="absolute bottom-10 flex w-full justify-between px-10">            <button id="cook-mode-prev-btn" class="bg-gray-700 text-white px-8 py-4 rounded-lg text-xl">Anterior</button>            <button id="cook-mode-next-btn" class="bg-amber-600 text-white px-8 py-4 rounded-lg text-xl">Próximo</button>        </div>    </div>    <script>        document.addEventListener('DOMContentLoaded', function () {                        // Data            const shoppingListData = [                { category: 'Açougue', items: ['Lombo suíno (peça única, temperada, ~2 kg)'] },                { category: 'Hortifrúti', items: ['Cebola branca (~3)', 'Cebola roxa (~1)', 'Cenoura (~3)', 'Salsão / Aipo (1 talo)', 'Alho (2 cabeças)', 'Limão siciliano (1)', 'Limão taiti (1)', 'Figos frescos (~2 bandejas)', 'Salsinha fresca (1 maço)', 'Tomilho fresco (1 maço)', 'Alecrim fresco (1 maço)'] },                { category: 'Laticínios e Frios', items: ['Queijo Gorgonzola Dolce (250 g)', 'Queijo Parmesão (peça, ~400 g)', 'Manteiga sem sal (2 tabletes de 200 g)'] },                { category: 'Mercearia e Grãos', items: ['Arroz Arbóreo (500 g)', 'Farinha de mandioca flocada (500 g)', 'Castanha-do-pará (150 g)', 'Castanha-de-caju torrada (150 g)', 'Mel de flor de laranjeira (250 g)', 'Vinho branco seco (750 ml)', 'Azeite de oliva extravirgem (500 ml)', 'Sal (fino e grosso)', 'Pimenta-do-reino em grãos', 'Folha de louro'] }            ];            const budgetData = {                labels: ['Lombo', 'Laticínios', 'Mercearia', 'Hortifrúti', 'Castanhas'],                values: [45.60, 108.46, 84.39, 28.73, 48.74],                datasets: [{                    label: 'Custo Estimado por Categoria',                    data: [45.60, 108.46, 84.39, 28.73, 48.74],                    backgroundColor: ['#A16207', '#CA8A04', '#EAB308', '#FACC15', '#FEF08A'],                    borderColor: '#FDFBF8',                    borderWidth: 4,                    hoverOffset: 10                }]            };            const timelineSteps = [                { type: 'prep', timing: 'Dia Anterior', title: 'Preparar o Caldo de Legumes', description: 'Doure intensamente os legumes (cenoura, salsão, cebola) com azeite. Adicione alho, água, ervas e cozinhe em fogo brando por 1h30. Coe e refrigere.', duration: 5400 },                { type: 'prep', timing: 'Dia Anterior', title: 'Preparar a Farofa Crocante', description: 'Toste a farinha na manteiga até dourar. Separadamente, refogue cebola roxa e alho, adicione as castanhas picadas. Misture tudo, adicione salsinha e guarde em pote hermético.' },                { type: 'prep', timing: 'Dia do Jantar (T-4h)', title: 'Mise en Place', description: 'Pique a cebola, rale os queijos, esfarele o gorgonzola, corte os figos, separe a manteiga em cubos.' },                { type: 'final', timing: 'T-90 min', title: 'Pré-aquecer o forno', description: 'Pré-aqueça o forno a 180°C e retire o lombo da geladeira.', duration: 900 },                { type: 'final', timing: 'T-75 min', title: 'Selar e Assar o Lombo', description: 'Seque bem a superfície do lombo. Sele todos os lados em uma frigideira quente com azeite até formar uma crosta escura. Transfira para uma assadeira e leve ao forno.', duration: 3600 },                { type: 'prep', timing: 'T-30 min', title: 'Preparar Tuiles de Parmesão', description: 'Em uma frigideira antiaderente em fogo baixo, polvilhe discos finos de parmesão ralado. Deixe derreter e dourar. Vire por 30s. Deixe esfriar para ficarem crocantes.' },                { type: 'final', timing: 'T-30 min', title: 'Aquecer o Caldo', description: 'Coloque o caldo de legumes para aquecer em fogo baixo. Ele precisa estar quente para o risoto.' },                { type: 'final', timing: 'T-25 min', title: 'Iniciar o Risoto', description: 'Faça o soffritto com cebola, manteiga e azeite. Adicione 4 figos picados e mel para caramelizar. Toste o arroz (tostatura) e deglaceie com vinho branco.' },                { type: 'final', timing: 'T-23 min', title: 'Cozinhar o Risoto (Cottura)', description: 'Adicione o caldo quente, uma concha por vez, mexendo constantemente por 15-18 minutos, até o arroz estar al dente.', duration: 1080 },                { type: 'final', timing: 'T-10 min', title: 'Descansar o Lombo', description: 'Retire o lombo do forno (a 63°C), cubra com alumínio e deixe descansar por 10-15 minutos. Este passo é inegociável.', duration: 600 },                { type: 'final', timing: 'T-2 min', title: 'Finalizar o Risoto (Mantecatura)', description: 'Fora do fogo, adicione manteiga gelada, gorgonzola, parmesão e mel. Mexa vigorosamente para criar uma emulsão cremosa (all\'onda). Deixe descansar por 2 minutos.', duration: 120 },                { type: 'final', timing: 'T-0 min', title: 'Montar e Servir', description: 'Fatie o lombo. Monte os pratos conforme as instruções de empratamento e sirva imediatamente.' },            ];                        const accordionItems = [                { title: 'A Lenda do Gorgonzola', content: 'A história conta sobre um queijeiro apaixonado que, distraído, misturou uma coalhada esquecida com a do dia seguinte, criando acidentalmente os bolsões de ar perfeitos para o fungo Penicillium se desenvolver e dar origem a este queijo icônico.' },                { title: 'O Coração do Risoto', content: 'Nascido nos campos alagados da Lombardia, norte da Itália, o risoto é a celebração da capacidade do arroz (Arbóreo, Carnaroli) de absorver sabores e liberar amido, criando uma textura cremosa única que define a culinária da região.' },                { title: 'Ideias para Sobras', content: 'Não desperdice as sobras de risoto e lombo! Transforme-as em novos pratos. Clique no botão para receber sugestões criativas.', isGemini: true, id: 'leftovers' }            ];                        const recipeDetailsData = [                {                    title: 'Caldo de Legumes Caseiro (A Base de Tudo)',                    hasChefTip: true,                    content: `                        <div class="recipe-content text-body space-y-4">                            <div>                                <h5 class="text-lg font-semibold mb-2 text-subtitle">Ingredientes:</h5>                                <ul class="space-y-1">                                    <li>3 cenouras médias, grosseiramente picadas</li>                                    <li>2 talos de salsão, grosseiramente picados</li>                                    <li>2 cebolas brancas, grosseiramente picadas</li>                                    <li>1 cabeça de alho, cortada ao meio horizontalmente</li>                                    <li>3 colheres de sopa de azeite de oliva extravirgem</li>                                    <li>3 litros de água fria</li>                                    <li>1 bouquet garni (ramos de tomilho, alecrim, folhas de louro e talos de salsinha amarrados)</li>                                    <li>Grãos de pimenta-do-reino a gosto</li>                                    <li>Sal (usar com moderação, o ajuste final será no risoto)</li>                                </ul>                            </div>                            <div>                                <h5 class="text-lg font-semibold mb-2 text-subtitle">Modo de Preparo:</h5>                                <ol class="space-y-3">                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label>Em uma panela grande e de fundo grosso, aqueça o azeite em fogo médio-alto. Adicione a cenoura, o salsão e a cebola.</label></li>                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label>Cozinhe, mexendo ocasionalmente, por 10-15 minutos, até que os legumes estejam bem dourados e caramelizados nas bordas. Esta etapa é o segredo para um caldo de cor rica e sabor profundo. Não tenha pressa.</label></li>                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label>Adicione a cabeça de alho e cozinhe por mais um minuto, até perfumar.</label></li>                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label>Despeje a água fria na panela, raspando o fundo para soltar quaisquer pedaços caramelizados.</label></li>                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label>Adicione o bouquet garni e os grãos de pimenta. Deixe a mistura ferver e, em seguida, reduza imediatamente o fogo para o mínimo possível, mantendo apenas uma fervura muito suave (simmer).</label></li>                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label>Cozinhe lentamente, com a panela parcialmente tampada, por no mínimo 1 hora e 30 minutos. Quanto mais tempo, mais saboroso.</label></li>                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label>Desligue o fogo e coe o caldo cuidadosamente usando uma peneira fina, descartando os sólidos. Prove e ajuste o sal levemente, se necessário.</label></li>                                </ol>                            </div>                        </div>`                },                {                    title: 'Lombo Suíno Assado',                    hasChefTip: true,                    content: `                        <div class="recipe-content text-body space-y-4">                            <div>                                <h5 class="text-lg font-semibold mb-2 text-subtitle">Ingredientes:</h5>                                <ul class="space-y-1">                                    <li>1 peça de lombo suíno (~2 kg), já temperada conforme comprado</li>                                    <li>2-3 colheres de sopa de azeite de oliva extravirgem</li>                                    <li>Ramos de tomilho e alecrim frescos</li>                                    <li>4-5 dentes de alho, levemente amassados com a faca</li>                                    <li>Pimenta-do-reino moída na hora</li>                                </ul>                            </div>                            <div>                                <h5 class="text-lg font-semibold mb-2 text-subtitle">Modo de Preparo:</h5>                                <ol class="space-y-3">                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label>Retire o lombo da geladeira 30-40 minutos antes de cozinhar para que atinja a temperatura ambiente. Pré-aqueça o forno a 180°C.</label></li>                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label>Seque completamente a superfície da carne com papel toalha. Isso é essencial para obter uma crosta bem dourada. Tempere generosamente com pimenta-do-reino moída na hora.</label></li>                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label>Em uma frigideira grande e pesada, aqueça o azeite em fogo alto até começar a fumegar levemente.</label></li>                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label>Com cuidado, coloque o lombo na frigideira e sele todos os lados, incluindo as extremidades, até que uma crosta rica e marrom-escura se forme. Gire a peça a cada 2-3 minutos.</label></li>                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label>Transfira o lombo selado para uma assadeira. Adicione os ramos de ervas e os dentes de alho ao redor da carne.</label></li>                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label>Leve ao forno pré-aquecido e asse por aproximadamente 50-60 minutos, ou até que um termômetro de cozinha inserido na parte mais espessa marque 63°C.</label></li>                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label>Retire o lombo do forno, transfira para uma tábua de corte e cubra frouxamente com papel alumínio. Deixe a carne descansar por 10 a 15 minutos.</label></li>                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label>Após o descanso, fatie o lombo em fatias de 1,5 cm de espessura, sempre contra a fibra da carne.</label></li>                                </ol>                            </div>                        </div>`                },                {                    title: 'Risoto de Figo, Gorgonzola e Mel',                    hasChefTip: true,                    content: `                        <div class="recipe-content text-body space-y-4">                            <div>                                <h5 class="text-lg font-semibold mb-2 text-subtitle">Ingredientes:</h5>                                <ul class="space-y-1">                                    <li>500g de arroz Arbóreo ou Carnaroli</li>                                    <li>1 cebola branca média, picada em cubos minúsculos (brunoise)</li>                                    <li>4 colheres de sopa de manteiga sem sal, gelada e em cubos (2 para o início, 2 para o final)</li>                                    <li>1 colher de sopa de azeite de oliva extravirgem</li>                                    <li>12 figos frescos e maduros (4 picados grosseiramente, 8 cortados em quartos para decorar)</li>                                    <li>2 colheres de sopa de mel de flor de laranjeira (ou outro de boa qualidade)</li>                                    <li>150ml de vinho branco seco e de boa qualidade</li>                                    <li>~1.5 a 2 litros de caldo de legumes, mantido em fervura branda</li>                                    <li>250g de queijo Gorgonzola Dolce, esfarelado</li>                                    <li>150g de queijo Parmesão, ralado na hora</li>                                    <li>Raspas de 1 limão siciliano para finalizar</li>                                    <li>Sal e pimenta-do-reino moída na hora</li>                                </ul>                            </div>                            <div>                                <h5 class="text-lg font-semibold mb-2 text-subtitle">Modo de Preparo (As 4 Etapas Cruciais):</h5>                                <ol class="space-y-3">                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label><strong>Soffritto:</strong> Em uma panela larga, derreta 2 colheres de manteiga com o azeite em fogo médio. Adicione a cebola e uma pitada de sal. Refogue lentamente por 5-7 minutos, até ficar macia e translúcida.</label></li>                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label><strong>Tostatura:</strong> Aumente o fogo, adicione o arroz e mexa constantemente por 2-3 minutos para tostar os grãos. Deglaceie com o vinho branco, mexendo até evaporar.</label></li>                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label><strong>Cottura:</strong> Reduza o fogo. Adicione caldo quente, uma concha por vez, mexendo sempre. Continue por 15-18 minutos. Na metade do tempo, adicione os 4 figos picados. O arroz deve estar "al dente".</label></li>                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label><strong>Mantecatura:</strong> Fora do fogo, adicione a manteiga gelada, Gorgonzola, Parmesão e mel. Mexa vigorosamente para criar uma emulsão cremosa. Deixe descansar por 2 minutos antes de servir.</label></li>                                </ol>                            </div>                        </div>`                },                {                    title: 'Farofa Crocante de Castanhas',                    hasChefTip: true,                    content: `                        <div class="recipe-content text-body space-y-4">                            <div>                                <h5 class="text-lg font-semibold mb-2 text-subtitle">Ingredientes:</h5>                                <ul class="space-y-1">                                    <li>300g de farinha de mandioca flocada (tipo biju)</li>                                    <li>4-5 colheres de sopa de manteiga sem sal</li>                                    <li>1 cebola roxa pequena, cortada em cubos pequenos</li>                                    <li>2 dentes de alho picados</li>                                    <li>150g de mix de castanha-do-pará e castanha-de-caju, grosseiramente picadas</li>                                    <li>Um punhado de salsinha fresca, picada</li>                                    <li>Sal e pimenta-do-reino a gosto</li>                                </ul>                            </div>                            <div>                                <h5 class="text-lg font-semibold mb-2 text-subtitle">Modo de Preparo:</h5>                                <ol class="space-y-3">                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label>Em uma frigideira, derreta a manteiga e refogue a cebola até ficar macia.</label></li>                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label>Acrescente o alho e cozinhe por mais um minuto.</label></li>                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label>Adicione as castanhas e toste por 2-3 minutos.</label></li>                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label>Reduza o fogo, adicione a farinha e mexa sem parar por 5-8 minutos, até dourar.</label></li>                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label>Desligue o fogo, misture a salsinha e tempere com sal e pimenta.</label></li>                                </ol>                            </div>                        </div>`                },                {                    title: 'Tuile de Parmesão',                    hasChefTip: true,                    content: `                        <div class="recipe-content text-body space-y-4">                            <div>                                <h5 class="text-lg font-semibold mb-2 text-subtitle">Ingredientes:</h5>                                <ul class="space-y-1">                                    <li>100g de queijo Parmesão de boa qualidade, ralado na hora</li>                                </ul>                            </div>                            <div>                                <h5 class="text-lg font-semibold mb-2 text-subtitle">Modo de Preparo:</h5>                                <ol class="space-y-3">                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label>Aqueça uma frigideira antiaderente em fogo médio-baixo.</label></li>                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label>Faça pequenos montes de parmesão ralado, achatando-os para formar discos finos.</label></li>                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label>Cozinhe por 1-2 minutos, até o queijo derreter e as bordas dourarem.</label></li>                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label>Com uma espátula, vire e cozinhe por mais 30 segundos.</label></li>                                    <li class="recipe-step-item"><input type="checkbox" class="mr-2 accent-amber-500"><label>Retire e deixe esfriar sobre papel toalha. Elas ficarão crocantes ao esfriar.</label></li>                                </ol>                            </div>                        </div>`                }            ];            // Core Functions            const tabs = document.querySelectorAll('.tab-btn');            const contents = document.querySelectorAll('.tab-content');            tabs.forEach(tab => {                tab.addEventListener('click', () => {                    const target = tab.getAttribute('data-tab');                    tabs.forEach(t => t.classList.replace('tab-active', 'tab-inactive'));                    tab.classList.replace('tab-inactive', 'tab-active');                    contents.forEach(content => content.id === target ? content.classList.remove('hidden') : content.classList.add('hidden'));                });            });                        function renderShoppingList() {                const container = document.getElementById('shopping-list-container');                const navContainer = document.getElementById('shopping-list-nav');                container.innerHTML = '';                navContainer.innerHTML = '';                shoppingListData.forEach(category => {                    const categoryId = `category-${category.category.replace(/\s+/g, '-')}`;                    const categoryDiv = document.createElement('div');                    categoryDiv.innerHTML = `<h3 id="${categoryId}" class="text-xl font-bold text-subtitle mb-2 pt-4">${category.category}</h3>`;                    const ul = document.createElement('ul');                    ul.className = 'space-y-2';                    category.items.forEach(item => {                        const uniqueId = `item-${Math.random().toString(36).substr(2, 9)}`;                        li = document.createElement('li');                        li.innerHTML = `<input type="checkbox" id="${uniqueId}" class="mr-2 accent-amber-500"><label for="${uniqueId}" class="text-body">${item}</label>`;                        ul.appendChild(li);                    });                    categoryDiv.appendChild(ul);                    container.appendChild(categoryDiv);                    const navLink = document.createElement('a');                    navLink.href = `#${categoryId}`;                    navLink.className = 'block text-muted hover:text-amber-600 dark:hover:text-amber-400 transition-colors';                    navLink.textContent = category.category;                    navContainer.appendChild(navLink);                });            }            function createBudgetChart() {                const ctx = document.getElementById('budgetChart').getContext('2d');                new Chart(ctx, {                    type: 'doughnut',                    data: budgetData,                    options: {                        responsive: true,                        maintainAspectRatio: false,                        plugins: {                            legend: { position: 'bottom', labels: { color: document.documentElement.classList.contains('dark') ? '#d1d5db' : '#44403c' } },                            tooltip: {                                callbacks: {                                    label: function(context) {                                        return `${context.label}: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(context.parsed)}`;                                    }                                }                            }                        }                    }                });                const total = budgetData.values.reduce((acc, val) => acc + val, 0);                const totalWithMargin = total * 1.10;                const summaryDiv = document.getElementById('budget-summary');                summaryDiv.innerHTML = `                    <p class="text-body">Valor Total: <span class="font-bold">${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total)}</span></p>                    <p class="text-muted text-sm">Com margem de 10%: <span class="font-bold">${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalWithMargin)}</span></p>                `;            }                        function renderTimeline(filter = 'all') {                const container = document.getElementById('timeline-container');                container.innerHTML = '';                const filteredSteps = timelineSteps.filter(step => filter === 'all' || step.type === filter);                                filteredSteps.forEach(step => {                    const stepDiv = document.createElement('div');                    stepDiv.className = 'timeline-item relative pb-8';                    const timingColor = step.type === 'prep' ? 'text-sky-600 dark:text-sky-400' : 'text-red-600 dark:text-red-400';                    const bgColor = 'card-bg';                    stepDiv.innerHTML = `                        <div class="p-4 rounded-lg border card-border shadow-sm ${bgColor}">                            <p class="font-bold ${timingColor} text-sm">${step.timing.toUpperCase()}</p>                            <h4 class="text-xl font-bold text-subtitle mt-1">${step.title}</h4>                            <p class="text-muted mt-2">${step.description}</p>                        </div>                    `;                    container.appendChild(stepDiv);                });            }            const filterButtons = document.querySelectorAll('.timeline-filter-btn');            filterButtons.forEach(button => {                button.addEventListener('click', () => {                    const filter = button.getAttribute('data-filter');                    renderTimeline(filter);                    filterButtons.forEach(btn => {                        btn.classList.remove('bg-amber-600', 'text-white');                        btn.classList.add('bg-stone-200', 'dark:bg-gray-700', 'text-stone-700', 'dark:text-gray-300');                    });                    button.classList.add('bg-amber-600', 'text-white');                    button.classList.remove('bg-stone-200', 'dark:bg-gray-700', 'text-stone-700', 'dark:text-gray-300');                });            });                        function createGenericAccordion(containerId, items) {                const container = document.getElementById(containerId);                if (!container) return;                container.innerHTML = '';                                items.forEach((item, index) => {                    const itemDiv = document.createElement('div');                    itemDiv.className = 'border border-stone-300 dark:border-gray-700 rounded-lg overflow-hidden';                                        let contentHtml = item.content;                    if (item.isGemini) {                        contentHtml = `<p class="text-muted mb-4">${item.content}</p>                         <div class="mt-4">                            <button id="get-${item.id}-btn" class="bg-amber-600 text-white px-4 py-2 rounded-md hover:bg-amber-700 transition-colors flex items-center justify-center gap-2">                                <span class="btn-text">✨ Gerar Ideias</span>                                <div class="spinner hidden"></div>                            </button>                            <div id="${item.id}-result" class="mt-4 text-body bg-stone-50 dark:bg-gray-800 p-4 rounded-md border card-border min-h-[100px]">                                <p class="text-muted">Suas ideias criativas aparecerão aqui.</p>                            </div>                        </div>`;                    } else if (item.hasChefTip) {                        contentHtml += `                            <div class="mt-6 pt-4 border-t border-dashed border-stone-300 dark:border-gray-600">                                <button id="get-chef-tip-btn-${index}" data-recipe-title="${item.title}" class="bg-transparent border border-amber-600 text-amber-700 dark:border-amber-400 dark:text-amber-300 px-4 py-2 rounded-md hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors flex items-center justify-center gap-2">                                    <span class="btn-text">✨ Dica do Chef</span>                                    <div class="spinner hidden"></div>                                </button>                                <div id="chef-tip-result-${index}" class="mt-4 text-body bg-amber-50/60 dark:bg-amber-900/20 p-4 rounded-md border border-amber-200 dark:border-amber-900/30 min-h-[75px] hidden">                                </div>                            </div>                        `;                    }                    itemDiv.innerHTML = `                        <h2>                            <button type="button" class="flex items-center justify-between w-full p-5 font-medium text-left text-subtitle accordion-trigger-bg transition-colors duration-200" data-accordion-trigger>                                <span class="text-xl font-bold">${item.title}</span>                                <svg class="w-4 h-4 shrink-0 transition-transform duration-300 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>                            </button>                        </h2>                        <div class="hidden p-5 border-t border-stone-300 dark:border-gray-700 card-bg">                            ${contentHtml}                        </div>                    `;                    container.appendChild(itemDiv);                });                const triggers = container.querySelectorAll('[data-accordion-trigger]');                triggers.forEach(trigger => {                    trigger.addEventListener('click', function() {                        const content = this.parentElement.nextElementSibling;                        triggers.forEach(otherTrigger => {                            if (otherTrigger !== this) {                                otherTrigger.parentElement.nextElementSibling.classList.add('hidden');                                otherTrigger.querySelector('svg').classList.remove('rotate-180');                            }                        });                        content.classList.toggle('hidden');                        this.querySelector('svg').classList.toggle('rotate-180');                    });                });            }            // Gemini API Call Function            async function callGemini(prompt, button, resultContainer) {                const spinner = button.querySelector('.spinner');                const btnText = button.querySelector('.btn-text');                spinner.classList.remove('hidden');                btnText.classList.add('hidden');                button.disabled = true;                resultContainer.innerHTML = '<p class="text-muted">Gerando sugestões...</p>';                resultContainer.classList.remove('hidden');                                const apiKey = "AIzaSyB8DEuOcAad3AGQt-Yude4-B83l8ZFayzE";                if (apiKey === "COLE_SUA_CHAVE_DE_API_AQUI") {                    resultContainer.innerHTML = `<p class="text-red-500"><strong>Erro de Configuração:</strong> Você precisa adicionar sua própria chave de API do Gemini no código para que a IA funcione.</p>`;                    spinner.classList.add('hidden');                    btnText.classList.remove('hidden');                    button.disabled = false;                    return;                }                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;                const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };                const controller = new AbortController();                const timeoutId = setTimeout(() => controller.abort(), 30000);                try {                    const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: controller.signal });                    clearTimeout(timeoutId);                    if (!response.ok) {                        const errorBody = await response.json().catch(() => ({ error: { message: "Não foi possível ler a resposta de erro da API." } }));                        throw new Error(`Falha na comunicação com a API (${response.status}) - ${errorBody.error.message}`);                    }                    const result = await response.json();                    let text = result?.candidates?.[0]?.content?.parts?.[0]?.text;                    if (text) {                        text = text.replace(/^```html\s*/, '').replace(/```$/, '');                        resultContainer.innerHTML = text;                    } else {                        throw new Error("A API retornou uma resposta inesperada.");                    }                } catch (error) {                    if (error.name === 'AbortError') {                        resultContainer.innerHTML = `<p class="text-red-500">A requisição demorou muito para responder. Tente novamente.</p>`;                    } else {                        resultContainer.innerHTML = `<p class="text-red-500">Desculpe, ocorreu um erro: ${error.message}</p>`;                    }                } finally {                    spinner.classList.add('hidden');                    btnText.classList.remove('hidden');                    button.disabled = false;                }            }            // Setup Gemini Listeners            function setupGeminiButtonListeners() {                document.getElementById('get-pairing-btn')?.addEventListener('click', (e) => {                    const preference = document.getElementById('pairing-preference').value.trim() || 'qualquer uma';                    const prompt = `Você é um sommelier de classe mundial. Para um menu de 'Risoto de figo com gorgonzola' e 'Lombo suíno assado', o cliente tem a seguinte preferência: '${preference}'. Com base ESTRITAMENTE nessa preferência, forneça 2-3 sugestões de harmonização. Explique cada escolha. Sua resposta DEVE conter APENAS o código HTML. Use tags <h4> para os títulos e <p> para as descrições.`;                    callGemini(prompt, e.currentTarget, document.getElementById('pairing-result'));                });                document.getElementById('get-leftovers-btn')?.addEventListener('click', (e) => {                    const prompt = `Você é um chef criativo. Tenho sobras de 'risoto de figo com gorgonzola' e 'lombo suíno assado'. Dê 3 ideias de pratos. Sua resposta DEVE conter APENAS o código HTML. Use <h4> para o nome do prato e <p> para a descrição.`;                    callGemini(prompt, e.currentTarget, document.getElementById('leftovers-result'));                });                document.getElementById('get-substitute-btn')?.addEventListener('click', (e) => {                    const ingredient = document.getElementById('substitute-ingredient').value;                    if (!ingredient) {                        document.getElementById('substitute-result').innerHTML = '<p class="text-red-500">Por favor, digite um ingrediente.</p>';                        return;                    }                    const prompt = `Você é um chef experiente. Para um menu com 'lombo suíno' e 'risoto de figo com gorgonzola', preciso de substituições para: '${ingredient}'. Dê 1 ou 2 alternativas práticas. Explique as implicações e ajustes. Sua resposta DEVE conter APENAS o código HTML. Use <h4> para o substituto e <p> para a explicação.`;                    callGemini(prompt, e.currentTarget, document.getElementById('substitute-result'));                });                recipeDetailsData.forEach((recipe, index) => {                    if (recipe.hasChefTip) {                        document.getElementById(`get-chef-tip-btn-${index}`)?.addEventListener('click', (e) => {                            const recipeTitle = e.currentTarget.getAttribute('data-recipe-title');                            const prompt = `Você é um chef Michelin. Dê uma dica profissional e não óbvia para elevar a receita de '${recipeTitle}'. Foque em técnica ou um ingrediente secreto. Sua resposta DEVE conter APENAS o código HTML. Use um parágrafo <p> conciso e inspirador.`;                            callGemini(prompt, e.currentTarget, document.getElementById(`chef-tip-result-${index}`));                        });                    }                });            }            // Dark Mode Toggle            const themeToggleBtn = document.getElementById('theme-toggle');            const darkIcon = document.getElementById('theme-toggle-dark-icon');            const lightIcon = document.getElementById('theme-toggle-light-icon');            if (document.documentElement.classList.contains('dark')) {                lightIcon.classList.remove('hidden');            } else {                darkIcon.classList.remove('hidden');            }            themeToggleBtn.addEventListener('click', function() {                darkIcon.classList.toggle('hidden');                lightIcon.classList.toggle('hidden');                if (localStorage.getItem('color-theme')) {                    if (localStorage.getItem('color-theme') === 'light') {                        document.documentElement.classList.add('dark');                        localStorage.setItem('color-theme', 'dark');                    } else {                        document.documentElement.classList.remove('dark');                        localStorage.setItem('color-theme', 'light');                    }                } else {                    if (document.documentElement.classList.contains('dark')) {                        document.documentElement.classList.remove('dark');                        localStorage.setItem('color-theme', 'light');                    } else {                        document.documentElement.classList.add('dark');                        localStorage.setItem('color-theme', 'dark');                    }                }            });            // Cook Mode            const cookModeBtn = document.getElementById('cook-mode-btn');            const cookModeModal = document.getElementById('cook-mode-modal');            const cookModeCloseBtn = document.getElementById('cook-mode-close-btn');            let currentStepIndex = 0;            let timerInterval;            function updateCookModeStep() {                const step = timelineSteps[currentStepIndex];                document.getElementById('cook-mode-step-title').textContent = step.title;                document.getElementById('cook-mode-step-description').textContent = step.description;                                const timerDiv = document.getElementById('cook-mode-timer');                const timerBtn = document.getElementById('cook-mode-timer-btn');                clearInterval(timerInterval);                timerDiv.textContent = '';                                if (step.duration) {                    timerBtn.classList.remove('hidden');                    timerDiv.textContent = `${Math.floor(step.duration / 60)}:${(step.duration % 60).toString().padStart(2, '0')}`;                    timerBtn.onclick = () => startTimer(step.duration, timerDiv);                } else {                    timerBtn.classList.add('hidden');                }            }                        function startTimer(duration, display) {                let timer = duration;                display.classList.remove('text-amber-400');                clearInterval(timerInterval);                timerInterval = setInterval(() => {                    let minutes = parseInt(timer / 60, 10);                    let seconds = parseInt(timer % 60, 10);                    minutes = minutes < 10 ? "0" + minutes : minutes;                    seconds = seconds < 10 ? "0" + seconds : seconds;                    display.textContent = minutes + ":" + seconds;                    if (--timer < 0) {                        clearInterval(timerInterval);                        display.textContent = "Finalizado!";                        display.classList.add('text-amber-400');                        // Optional: play a sound                        new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU2LjM2LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV6urq6urq6urq6urq6urq6urq6urq6urq////////////////////////////////8AAAAATGF2YzU2LjQxAAAAAAAAAAAAAAAAJAAAAAAAAAAAASDs90hvAAAAAAAAAAAAAAAAAAAA//MUZAAAAAGkAAAAAAAAA0gAAAAATEFNRTMuOTkuNVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//MUZAAAADSAAAAADSAAAAATEFNRTMuOTkuNVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV-..').play();                    }                }, 1000);            }            cookModeBtn.addEventListener('click', () => {                currentStepIndex = 0;                updateCookModeStep();                cookModeModal.classList.remove('hidden');            });            cookModeCloseBtn.addEventListener('click', () => {                cookModeModal.classList.add('hidden');                clearInterval(timerInterval);            });            document.getElementById('cook-mode-next-btn').addEventListener('click', () => {                if (currentStepIndex < timelineSteps.length - 1) {                    currentStepIndex++;                    updateCookModeStep();                }            });            document.getElementById('cook-mode-prev-btn').addEventListener('click', () => {                if (currentStepIndex > 0) {                    currentStepIndex--;                    updateCookModeStep();                }            });            // Initial Renders            renderShoppingList();            createBudgetChart();            renderTimeline();            createGenericAccordion('accordion-container', accordionItems);            createGenericAccordion('recipe-accordion-container', recipeDetailsData);            setupGeminiButtonListeners();        });    </script></body></html>
